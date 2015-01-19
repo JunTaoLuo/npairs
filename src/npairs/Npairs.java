@@ -13,7 +13,6 @@ import npairs.io.NiftiIO;
 import npairs.io.NpairsIO;
 import npairs.utils.ZScorePatternInfo;
 import npairs.io.NpairsDataLoader;
-
 import pls.shared.MLFuncs;
 
 /***************************************************************************************
@@ -457,14 +456,14 @@ public class Npairs  {
 		int numAnalyses = 0;
 		for (int splitNum = 0; splitNum < numSamples; ++splitNum) {
 
-			Analysis firstPartAnalysis;
+			final Analysis[] firstPartAnalysis = new Analysis[1];
 			Analysis secondPartAnalysis = null;
 
 			int[] split1DataVols = resampler.getSample(0, splitNum);
 			int[] split2DataVols = resampler.getSample(1, splitNum);
 
 			if (setupParams.doInitFeatSelect()) {
-				firstPartAnalysis = 
+				firstPartAnalysis[0] = 
 					new Analysis(dataLoader.getFeatSelData(), setupParams, 
 							split1DataVols, true, fullDataAnalysis);
 				if (setupParams.switchTrainAndTestSets()) {
@@ -474,7 +473,7 @@ public class Npairs  {
 				}
 			}
 			else {
-				firstPartAnalysis = 
+				firstPartAnalysis[0] = 
 					new Analysis(dataLoader.getDataInOrigSpace(), setupParams, 
 							split1DataVols, true, fullDataAnalysis);
 				if (setupParams.switchTrainAndTestSets()) {
@@ -486,32 +485,61 @@ public class Npairs  {
 
 			output.println("Split # 1/" 
 					+ splitNum + ":");
-			double sTime = System.currentTimeMillis();
+			
+			double tTime, sTime = System.currentTimeMillis();
+			
 			// split analysis CVA is matched to reference analysis 
 			// within Analysis.run()
-			firstPartAnalysis.run();
-			double tTime = (System.currentTimeMillis() - sTime) / 1000;
-			output.println("Done split. [" + tTime + " s]");
-			++numAnalyses;
+			Thread t = new Thread(){
+				public void run(){
+					try {
+						double sTime1 = System.currentTimeMillis();
+						System.out.println("running Analysis 1");
+						firstPartAnalysis[0].run();
+						double tTime1 = (System.currentTimeMillis() - sTime1) / 1000;
+						output.println("Done Analysis 1. [" + tTime1 + " s]");
 
+						
+					} catch (NpairsException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+					//++numAnalyses;
+				}
+			};
+			t.start();
+			
 			if (setupParams.switchTrainAndTestSets()) {
 				output.println("Split # 2/" 
 						+ splitNum + ":");
-				sTime = System.currentTimeMillis();
+				//sTime = System.currentTimeMillis();
+				
+				double sTime2 = System.currentTimeMillis();
+				System.out.println("running Analysis 2");
 				secondPartAnalysis.run();
-				tTime = (System.currentTimeMillis() - sTime) / 1000;
-				output.println("Done split. [" + tTime + " s]");
+				double tTime2 = (System.currentTimeMillis() - sTime2) / 1000;
+				output.println("Done split. [" + tTime2 + " s]");
 				++numAnalyses;
 			}
+			try {
+				t.join();
+				++numAnalyses;
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
+			tTime = (System.currentTimeMillis() - sTime) / 1000;
+			System.out.println("split done in . [" + tTime + " s]");
 			
 			if (setupParams.runPCA()) {
-				splitDataPCA1 = firstPartAnalysis.getPCA(); 
+				splitDataPCA1 = firstPartAnalysis[0].getPCA(); 
 				if (setupParams.switchTrainAndTestSets()) {
 					splitDataPCA2 = secondPartAnalysis.getPCA();
 				}
 			}
 			
-			splitDataCVA1 = firstPartAnalysis.getCVA();  // null if cva not run
+			splitDataCVA1 = firstPartAnalysis[0].getCVA();  // null if cva not run
 			splitDataCVA2 = secondPartAnalysis.getCVA(); // null if cva not run or training and 
 														 // test data not switched
 			
