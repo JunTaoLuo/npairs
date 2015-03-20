@@ -19,6 +19,8 @@ import java.util.Date;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 
+import java.util.*;
+
 /** This class is the executive manager of an entire NPAIRS analysis thread. It manages 
  * loading data, running the analysis and saving the results. 
  * 
@@ -236,90 +238,194 @@ public class NpairsAnalysis extends ProgressDialogWatcher {
 				progress.startTask("Running NPAIRS analysis\n", "Analysis");
 			} 
 			else if (analysisNum == -1) { // run all N analyses (where N > 1)
-				progress.postMessage("Starting NPAIRS analysis loop.\n");
+				progress.postMessage("Starting Simulated Annealing loop.\n");
+				
+				
+		        SimulatedAnnealing SA = new SimulatedAnnealing(5, numNPAIRS - 1);
+		        int lastAnalysisIdx = numNPAIRS - 1;
+		        
+		        double bestScore = 0;
+		        int lastUpdate = 0;
+		        int iter = 0;
+
+		        int q = SA.getRandomNeighbour(0);
+		        int oldScore = 0;
+
+		        int bestQ = q;
+		        double newScore = 0;
+		        
+		        while (SA.temperature > 0.001 && iter-lastUpdate < 10){
+		            SA.updateTemperature(iter);
+		            
+		            int newQ = SA.getRandomNeighbour(iter);
+		            int i = newQ;
+		            
+		            
+		            
+		            if (numNPAIRS > 1) {
+						String runMsg = "Running analysis # " + (i + 1) + "... ";
+						progress.startTask(runMsg, 
+								"Analysis # " + (i + 1));
+						Npairs.getOutput().println(runMsg);
+					}
+
+		            
+					// fill in required setup parameters for current analysis
+					boolean abortAnalyses = false;
+					boolean pcsOutOfRange = false;
+					try {
+						pcsOutOfRange = nsp.setPCs(i, progress);
+						if (pcsOutOfRange && i < lastAnalysisIdx) {
+							//  pc range increases in each analysis so all subsequent analyses 
+							// will also be out of range
+							abortAnalyses = true;
+							lastAnalysisIdx = i;
+						}
+					}
+					catch (NpairsException npe) { // no pcs in range
+						String errMsg = npe.getMessage() + " Stopping analysis.";
+						Npairs.getOutput().println(errMsg);
+						progress.postMessage("\n" + errMsg + "\n");
+						progress.endTask();
+						progress.complete();
+						return;
+					}
+					
+					if (nsp.setPCrange()) {
+						nsp.setResultsFilePref(i);
+					}
+
+					try {
+						Npairs npairsj = new Npairs(ndl, nsp, matlibType, i);
+						newScore = npairsj.predictability;
+						
+						
+						String saveResultMatMessage = "Saving NPAIRS results to file " + 
+						nsp.getResultsFilePrefix() + NpairsfMRIResultFileFilter.EXTENSION + "...";
+						progress.postMessage(saveResultMatMessage);
+						Npairs.getOutput().print(saveResultMatMessage);
+						double sTime = System.currentTimeMillis();
+						new ResultSaver(npairsj, npairsSetupParamsMatFileName, nsp.getResultsFilePrefix());
+						double tTime = (System.currentTimeMillis() - sTime) / 1000;
+						progress.postMessage("Done [" + tTime + "s]\n");
+						Npairs.getOutput().println("Done [" + tTime + "s]");
+
+					}
+					catch (NpairsException npe) {
+						progress.printError(npe.getMessage());
+						Npairs.getOutput().println(npe.getMessage());
+					}
+					progress.endTask(); // running current analysis
+					
+					
+					if (abortAnalyses) {
+						String stopAnalysesMsg = "Not running remaining analyses - PCs out of range.";
+						progress.postMessage("\n" + stopAnalysesMsg + "\n");
+						Npairs.getOutput().println(stopAnalysesMsg);
+					}
+									
+		            
+		            
+		            
+		            if (SA.accept(oldScore, newScore)){
+		                q = newQ;
+		                if (newScore > bestScore){
+		                    bestScore = newScore;
+		                    lastUpdate = iter;
+		                }
+		            }
+		            iter++;
+		        }
+
+				
+		        System.out.println(iter + " number of iterations!");
+		        System.out.println("best score: " + bestScore);
+				
 			} 
 
-			int firstAnalysisIdx = 0;
-			int lastAnalysisIdx = numNPAIRS - 1;
-			if (analysisNum > 0) { // just run the analysisNum'th analysis
-				firstAnalysisIdx = analysisNum - 1;
-				lastAnalysisIdx = analysisNum - 1;
-			}
-			for (int i = firstAnalysisIdx; i <= lastAnalysisIdx; ++i) {
-				if (numNPAIRS > 1) {
-					String runMsg = "Running analysis # " + (i + 1) + "... ";
-					progress.startTask(runMsg, 
-							"Analysis # " + (i + 1));
-					Npairs.getOutput().println(runMsg);
+			else{
+				int firstAnalysisIdx = 0;
+				int lastAnalysisIdx = numNPAIRS - 1;
+				if (analysisNum > 0) { // just run the analysisNum'th analysis
+					firstAnalysisIdx = analysisNum - 1;
+					lastAnalysisIdx = analysisNum - 1;
 				}
-
-				// fill in required setup parameters for current analysis
-				boolean abortAnalyses = false;
-				boolean pcsOutOfRange = false;
-				try {
-					pcsOutOfRange = nsp.setPCs(i, progress);
-					if (pcsOutOfRange && i < lastAnalysisIdx) {
-						//  pc range increases in each analysis so all subsequent analyses 
-						// will also be out of range
-						abortAnalyses = true;
-						lastAnalysisIdx = i;
+				for (int i = firstAnalysisIdx; i <= lastAnalysisIdx; ++i) {
+					if (numNPAIRS > 1) {
+						String runMsg = "Running analysis # " + (i + 1) + "... ";
+						progress.startTask(runMsg, 
+								"Analysis # " + (i + 1));
+						Npairs.getOutput().println(runMsg);
 					}
-				}
-				catch (NpairsException npe) { // no pcs in range
-					String errMsg = npe.getMessage() + " Stopping analysis.";
-					Npairs.getOutput().println(errMsg);
-					progress.postMessage("\n" + errMsg + "\n");
-					progress.endTask();
-					progress.complete();
-					return;
-				}
-				if (nsp.setPCrange()) {
-					nsp.setResultsFilePref(i);
-				}
-
-				//				}
-				//				else {
-				//					if (!nsp.splitPCRangeValid()) {
-				//						String splitPCRangeWarning = "Warning: PC Range for split data analyses" +
-				//						"\nexceeds size of data.  Out-of-range PCs have been excluded.";
-				//						progress.postMessage("\n" + splitPCRangeWarning + "\n");
-				//						Npairsj.output.println(splitPCRangeWarning);
-				//					}
-				//					if (!nsp.fullPCRangeValid()) {
-				//						String fullPCRangeWarning = "Warning: PC Range for full data analyses" +
-				//						"\nexceeds size of data.  Out-of-range PCs have been excluded.";
-				//						progress.postMessage("\n" + fullPCRangeWarning + "\n");
-				//						Npairsj.output.println(fullPCRangeWarning);
-				//					}
-				//
-				//				}
-
-				try {
-					Npairs npairsj = new Npairs(ndl, nsp, matlibType, i);
-
-					String saveResultMatMessage = "Saving NPAIRS results to file " + 
-					nsp.getResultsFilePrefix() + NpairsfMRIResultFileFilter.EXTENSION + "...";
-					progress.postMessage(saveResultMatMessage);
-					Npairs.getOutput().print(saveResultMatMessage);
-					double sTime = System.currentTimeMillis();
-					new ResultSaver(npairsj, npairsSetupParamsMatFileName, nsp.getResultsFilePrefix());
-					double tTime = (System.currentTimeMillis() - sTime) / 1000;
-					progress.postMessage("Done [" + tTime + "s]\n");
-					Npairs.getOutput().println("Done [" + tTime + "s]");
-
-				}
-				catch (NpairsException npe) {
-					progress.printError(npe.getMessage());
-					Npairs.getOutput().println(npe.getMessage());
-				}
-				progress.endTask(); // running current analysis
-				
-				if (abortAnalyses) {
-					String stopAnalysesMsg = "Not running remaining analyses - PCs out of range.";
-					progress.postMessage("\n" + stopAnalysesMsg + "\n");
-					Npairs.getOutput().println(stopAnalysesMsg);
+	
+					// fill in required setup parameters for current analysis
+					boolean abortAnalyses = false;
+					boolean pcsOutOfRange = false;
+					try {
+						pcsOutOfRange = nsp.setPCs(i, progress);
+						if (pcsOutOfRange && i < lastAnalysisIdx) {
+							//  pc range increases in each analysis so all subsequent analyses 
+							// will also be out of range
+							abortAnalyses = true;
+							lastAnalysisIdx = i;
+						}
+					}
+					catch (NpairsException npe) { // no pcs in range
+						String errMsg = npe.getMessage() + " Stopping analysis.";
+						Npairs.getOutput().println(errMsg);
+						progress.postMessage("\n" + errMsg + "\n");
+						progress.endTask();
+						progress.complete();
+						return;
+					}
+					if (nsp.setPCrange()) {
+						nsp.setResultsFilePref(i);
+					}
+	
+					//				}
+					//				else {
+					//					if (!nsp.splitPCRangeValid()) {
+					//						String splitPCRangeWarning = "Warning: PC Range for split data analyses" +
+					//						"\nexceeds size of data.  Out-of-range PCs have been excluded.";
+					//						progress.postMessage("\n" + splitPCRangeWarning + "\n");
+					//						Npairsj.output.println(splitPCRangeWarning);
+					//					}
+					//					if (!nsp.fullPCRangeValid()) {
+					//						String fullPCRangeWarning = "Warning: PC Range for full data analyses" +
+					//						"\nexceeds size of data.  Out-of-range PCs have been excluded.";
+					//						progress.postMessage("\n" + fullPCRangeWarning + "\n");
+					//						Npairsj.output.println(fullPCRangeWarning);
+					//					}
+					//
+					//				}
+	
+					try {
+						Npairs npairsj = new Npairs(ndl, nsp, matlibType, i);
+	
+						String saveResultMatMessage = "Saving NPAIRS results to file " + 
+						nsp.getResultsFilePrefix() + NpairsfMRIResultFileFilter.EXTENSION + "...";
+						progress.postMessage(saveResultMatMessage);
+						Npairs.getOutput().print(saveResultMatMessage);
+						double sTime = System.currentTimeMillis();
+						new ResultSaver(npairsj, npairsSetupParamsMatFileName, nsp.getResultsFilePrefix());
+						double tTime = (System.currentTimeMillis() - sTime) / 1000;
+						progress.postMessage("Done [" + tTime + "s]\n");
+						Npairs.getOutput().println("Done [" + tTime + "s]");
+	
+					}
+					catch (NpairsException npe) {
+						progress.printError(npe.getMessage());
+						Npairs.getOutput().println(npe.getMessage());
+					}
+					progress.endTask(); // running current analysis
+					
+					if (abortAnalyses) {
+						String stopAnalysesMsg = "Not running remaining analyses - PCs out of range.";
+						progress.postMessage("\n" + stopAnalysesMsg + "\n");
+						Npairs.getOutput().println(stopAnalysesMsg);
+					}				
 				}				
-			}				
+			}
 		}
 		progress.endTask();
 		progress.complete();
@@ -347,4 +453,45 @@ public class NpairsAnalysis extends ProgressDialogWatcher {
 //		super.finalize();
 //	}
 	
+}
+
+class SimulatedAnnealing {
+
+    double temperature;
+    Random random;
+    int minQ, maxQ;
+    
+    ArrayList<Integer> Qs;
+
+    public SimulatedAnnealing(int minQ, int maxQ){
+        this.temperature = 100.0;
+        this.random = new Random();
+        
+        this.minQ = minQ;
+        this.maxQ = maxQ;
+
+        this.Qs = new ArrayList<Integer>();
+        for (int i = minQ; i < maxQ; i++)
+            this.Qs.add(i);
+
+
+    }
+    
+
+    public void updateTemperature(int iter){
+        this.temperature /= 1.05;
+    }
+
+
+    public int getRandomNeighbour(int curQ){
+        return this.random.nextInt(this.maxQ - this.minQ) + this.minQ;
+    }
+
+    public boolean accept(double oldScore, double newScore){
+        if (newScore > oldScore)    return true;
+        else
+            return Math.exp(-(newScore-oldScore)/this.temperature) > random.nextDouble();
+    }
+
+
 }
