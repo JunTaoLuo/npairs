@@ -295,7 +295,7 @@ public class NpairsAnalysis extends ProgressDialogWatcher {
 				//				}
 
 				try {
-					Npairs npairsj = new Npairs(ndl, nsp, matlibType);
+					Npairs npairsj = new Npairs(ndl, nsp, matlibType, i);
 
 					String saveResultMatMessage = "Saving NPAIRS results to file " + 
 					nsp.getResultsFilePrefix() + NpairsfMRIResultFileFilter.EXTENSION + "...";

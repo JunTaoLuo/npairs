@@ -201,7 +201,7 @@ public class Npairs  {
 	public Npairs(NpairsDataLoader dataLoader, String paramMatFileName, String matlibType, 
 			boolean eventRelAnalysis) throws NpairsException, IOException {
 		this(dataLoader, new NpairsSetupParams(paramMatFileName, false),
-				matlibType);
+				matlibType, 1);
 	}
 	
 	/***************************************************************************************
@@ -216,7 +216,7 @@ public class Npairs  {
 	 * @throws NpairsException
 	 * @throws IOException 
 	 **************************************************************************************/
-	public Npairs(NpairsDataLoader dataLoader, NpairsSetupParams nsp, String matlibType) 
+	public Npairs(NpairsDataLoader dataLoader, NpairsSetupParams nsp, String matlibType, int analysisNum) 
 		throws NpairsException, IOException {
 		this.setupParams = nsp;
 		this.dataLoader = dataLoader;
@@ -250,12 +250,11 @@ public class Npairs  {
 			output.printf("%.3f", s);
 			output.println(" s");
 			
-			
 			predictability = getPredictionValue();
 			reproducibility = getReproducibilityValue();
 			
-			System.out.println("Final predictability: " + predictability);
-			System.out.println("Final reproducibility: " + reproducibility);
+			System.out.println(analysisNum + "Final predictability: " + predictability);
+			System.out.println(analysisNum + "Final reproducibility: " + reproducibility);
 	}
 
 	private void runAnalysis() throws NpairsException, IOException {
