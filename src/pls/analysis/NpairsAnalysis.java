@@ -196,7 +196,7 @@ public class NpairsAnalysis extends ProgressDialogWatcher {
 						ifsMsg = ifsMsg.concat("(EVD)...\n");
 					}
 					progress.postMessage(ifsMsg);
-					if (analysisNum > 0) {
+					if (analysisNum > 0 || analysisNum == -1) {
 						loadEVD = true; // assume EVD already run and saved if specifying which
 						// analysis to run
 						nsp.setLoadEVD(true); 

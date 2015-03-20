@@ -274,7 +274,7 @@ public class Main {
 				System.arraycopy(argv, 0, paramFileList, 0, argv.length - 1);
 				RunAnalysisInfo info = new RunAnalysisInfo(paramFileList);
 				boolean validNum = info.checkValid(analysisNum);
-				if (!validNum) {
+				if (!validNum && analysisNum != -1) {
 					System.out.println("Invalid analysis number entered: " + analysisNum +
 					". Must be between 1 and " + info.getMinNumAnalyses() + ".");
 					return;
