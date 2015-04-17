@@ -501,7 +501,7 @@ public class Npairs  {
 				public void run(){
 					try {
 						double sTime1 = System.currentTimeMillis();
-						System.out.println("running Analysis 1");
+						//System.out.println("running Analysis 1");
 						firstPartAnalysis[0].run();
 						double tTime1 = (System.currentTimeMillis() - sTime1) / 1000;
 						output.println("Done Analysis 1. [" + tTime1 + " s]");
@@ -522,7 +522,7 @@ public class Npairs  {
 				//sTime = System.currentTimeMillis();
 				
 				double sTime2 = System.currentTimeMillis();
-				System.out.println("running Analysis 2");
+				//System.out.println("running Analysis 2");
 				secondPartAnalysis.run();
 				double tTime2 = (System.currentTimeMillis() - sTime2) / 1000;
 				output.println("Done split. [" + tTime2 + " s]");
@@ -537,7 +537,7 @@ public class Npairs  {
 			}
 			
 			tTime = (System.currentTimeMillis() - sTime) / 1000;
-			System.out.println("split done in . [" + tTime + " s]");
+			//System.out.println("split done in . [" + tTime + " s]");
 			
 			if (setupParams.runPCA()) {
 				splitDataPCA1 = firstPartAnalysis[0].getPCA(); 
